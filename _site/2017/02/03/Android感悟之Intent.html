@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link type="image/x-icon" rel="shortcut icon" href="/thumbnail.png" />
+    <link href='https://fonts.googleapis.com/css?family=Architects+Daughter' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="/assets/css/style.css?v=" media="screen" type="text/css">
+    <link rel="stylesheet" href="/assets/css/print.css" media="print" type="text/css">
+    <meta charset="utf-8" />
+    <meta content='text/html; charset=utf-8' http-equiv='Content-Type'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
+
+    
+    <meta name="description" content="本篇包括Intent、Intent过滤器和常见的Intent
+
+" />
+    <meta property="og:description" content="本篇包括Intent、Intent过滤器和常见的Intent
+
+" />
+    
+    <meta name="author" content="" />
+
+    
+    <meta property="og:title" content="Android学习感悟之Intent" />
+    <meta property="twitter:title" content="Android学习感悟之Intent" />
+    
+
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <title>CodeLion by AndyChao</title>
+  </head>
+
+  <body>
+    
+ <header>
+      <div class="inner">
+        <a href="http://localhost:4000/">
+           <h1>Android学习感悟之Intent</h1>
+        </a>
+
+ <a href="/" class="button"><small>Back to</small> Home Page </a>
+        
+      
+      </div>
+    </header>
+    
+   
+    
+
+    <div id="content-wrapper">
+      <div class="inner clearfix">
+      <article class="post">
+ <div class="space-extra-small">
+ </div>
+
+  <div class="entry">
+    <p>本篇包括Intent、Intent过滤器和常见的Intent</p>
+
+<h1 id="简介">简介</h1>
+
+<p>Intent在开发过程中，有着举足轻重的作用，最常见的就是界面间的跳转。对他的翻译中，我觉得“意图”解释的最到位，他用代码表示我们的想法，并让系统去执行。本篇内容包括Intent、Intent过滤器和常见的Intent，下面就依次解释。</p>
+
+<h2 id="intent">Intent</h2>
+
+<p>官方的解释：Intent是一个消息传递对象，您可以使用它从其他应用组件请求操作。在组件之间的通信主要包括：</p>
+
+<ul>
+  <li>
+    <p>启动 Activity</p>
+
+    <ul>
+      <li>
+        <p>startActivity(Intent intent)</p>
+      </li>
+      <li>
+        <p>startActivityForResult(Intent intent, int requestCode)</p>
+      </li>
+    </ul>
+  </li>
+  <li>
+    <p>启动服务</p>
+
+    <ul>
+      <li>
+        <p>startService(Intent service)</p>
+      </li>
+      <li>
+        <p>bindService(Intent service, ServiceConnection conn, int flags)</p>
+      </li>
+    </ul>
+  </li>
+  <li>
+    <p>传递广播</p>
+
+    <ul>
+      <li>sendBroadcast(Intent intent)</li>
+    </ul>
+  </li>
+</ul>
+
+<p>Intent又分为显示Intent和隐式Intent。</p>
+
+<p>显示是指指定了明确的要启动的组建，即设置了ComponentName，可以使用 setComponent()、setClass()、setClassName() 或 Intent 构造函数设置组件名称；</p>
+
+<p>隐式则就是不指定特定的组件，通过申明一些要执行的操作，让其它组件来处理，这里就设计到了Intent过滤器，用来匹配Intent是否有组件去处理，具体匹配规则在下文再分析。</p>
+
+<p><strong>注意：5.0以后如果使用隐式 Intent 调用 bindService()，系统会引发异常。因为您无法确定哪些服务将响应 Intent，且用户无法看到哪些服务已启动。</strong></p>
+
+<p>Intent包含了：ComponentName、Action、Data、Category、Extra、Flag这几个部分，都提供了不同的方法去设置，不外乎都是setXx或者addXx方法。</p>
+
+<p>使用隐式选择器时，如果系统中有多个能匹配上的组件就会通过一个对话框去选择用哪个组件去打开。由于系统对这种默认的对话框提供了记住选择的功能，所以下次再想选择就不行了，就像分享功能，这时候就可以使用Intent.createChooser(Intent target, CharSequence title)去强制打开对话框。</p>
+
+<p><strong>注意：由于隐式Intent可能匹配不到相应的组件，所以我们使用时最好加上一个判断intent.resolveActivity(getPackageManager()) != null，不为空表示能找到目标组件</strong></p>
+
+<h2 id="intent过滤器">Intent过滤器</h2>
+
+<p>隐式Intent，系统是如何找到对应的组件的呢？其实就是这些组件再Manifest文件中定义时，加上了&lt;intent-filter&gt;标签，当然可以不定义或者定义一个或者定义多个该标签，其中包括了&lt;action&gt;、&lt;category&gt;和&lt;data&gt;三个标签，三个标签也是可以不定义的。</p>
+
+<p>&lt;action&gt; 标签，只需设置name属性，内容可自定义，字符串；</p>
+
+<p>&lt;data&gt; 标签使用一个或多个指定数据 URI 各个方面（scheme、host、port、path 等）和 MIME 类型的属性，声明接受的数据类型；</p>
+
+<p>&lt;category&gt; 标签，也是设置name属性，内容可自定义，字符串。</p>
+
+<p>对于action，只要组件中某一个intent-filter中的某一个action匹配上了即通过；若没有action标签，则只有当intent中也没有设置action才算通过；</p>
+
+<p>对于data，比较复杂，它包含URI结构和数据类型，首先URI的几个属性存在着以下的依赖关系，</p>
+
+<p>URI结构：&lt;scheme&gt;://&lt;host&gt;:&lt;port&gt;/&lt;path&gt;</p>
+
+<ul>
+  <li>如果未指定scheme，则会忽略host。</li>
+  <li>如果未指定host，则会忽略port。</li>
+  <li>如果未指定scheme和host，则会忽略path。</li>
+</ul>
+
+<p>Intent中的URI与过滤器中的URI规范进行比较时，它仅与过滤器中包含的部分 URI 进行比较。所以只要Intent中包含了过滤器中的URI则URI匹配通过；其中path的匹配可包含通配符(*)</p>
+
+<p>URI结构和MIME类型，匹配时，需要分为四种情况，都无、有其一或者都有：</p>
+
+<ul>
+  <li>
+    <p>仅当过滤器未指定任何 URI 或 MIME 类型时，不含 URI 和 MIME 类型的 Intent 才会通过测试。</p>
+  </li>
+  <li>
+    <p>对于包含 URI 但不含 MIME 类型（既未显式声明，也无法通过 URI 推断得出）的 Intent，仅当其 URI 与过滤器的 URI 格式匹配、且过滤器同样未指定 MIME 类型时，才会通过测试。</p>
+  </li>
+  <li>
+    <p>仅当过滤器列出相同的 MIME 类型且未指定 URI 格式时，包含 MIME 类型、但不含 URI 的 Intent 才会通过测试。</p>
+  </li>
+  <li>
+    <p>仅当 MIME 类型与过滤器中列出的类型匹配时，同时包含 URI 类型和 MIME 类型的 Intent 才会通过测试的 MIME 类型部分。如果过滤器只是列出 MIME 类型，则假定组件支持 content: 和 file: 数据。</p>
+  </li>
+</ul>
+
+<p>对于category，intent可以不设置，也可通过，但是若是设置了，则intent的每个类别均必须与过滤器中的类别匹配才能通过，而在过滤器中，必须要写上默认的属性值：android.intent.category.DEFAULT；</p>
+
+<p>综上，当每一项都匹配通过时即可找到对应的组件。</p>
+
+<h2 id="常用的intent">常用的Intent</h2>
+
+<p>1、发送短信／彩信</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public void composeMmsMessage(String message, Uri attachment) {
+    Intent intent = new Intent(Intent.ACTION_SEND);
+    intent.setData(Uri.parse("smsto:"));  
+    intent.putExtra("sms_body", message);
+    intent.putExtra(Intent.EXTRA_STREAM, attachment);//附加的图像或视频的 Uri
+    if (intent.resolveActivity(getPackageManager()) != null) {
+        startActivity(intent);
+    }
+}
+</code></pre>
+</div>
+
+<p>2、打开系统设置</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public void openSettings() {
+    Intent intent = new Intent(Intent.ACTION_SETTINGS);
+    if (intent.resolveActivity(getPackageManager()) != null) {
+        startActivity(intent);
+    }
+}
+</code></pre>
+</div>
+
+<p>3、打开电话应用</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public void dialPhoneNumber(String phoneNumber) {
+    Intent intent = new Intent(Intent.ACTION_DIAL);
+    intent.setData(Uri.parse("tel:" + phoneNumber));
+    if (intent.resolveActivity(getPackageManager()) != null) {
+        startActivity(intent);
+    }
+}
+</code></pre>
+</div>
+
+<p>4、打开浏览器浏览网址</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>/**
+* @param url 需要以http或https开头
+*/
+public static void toHtml(Context context, String url) {
+	Intent intent = new Intent(Intent.ACTION_VIEW);
+	intent.setData(Uri.parse(url));
+	context.startActivity(intent);
+}
+</code></pre>
+</div>
+
+<p>5、打开系统日历</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>/**
+* 打开系统日历
+*/
+public static void callCalendar(Context context) {
+	Intent intent = new Intent(Intent.ACTION_VIEW);
+	intent.setData(Uri.parse("content://com.android.calendar/time"));
+	context.startActivity(intent);
+}
+</code></pre>
+</div>
+
+<p>6、打开系统计算器</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>@TargetApi(15)
+public static void callCalculator(Context context) {
+	ArrayList&lt;HashMap&lt;String, Object&gt;&gt; items = new ArrayList&lt;HashMap&lt;String, Object&gt;&gt;();
+	final PackageManager pm = context.getPackageManager();
+	List&lt;PackageInfo&gt; packs = pm.getInstalledPackages(0);
+	for (PackageInfo pi : packs) {
+		if (pi.packageName.toLowerCase().contains("calcul")) {
+			HashMap&lt;String, Object&gt; map = new HashMap&lt;String, Object&gt;();
+			map.put("appName", pi.applicationInfo.loadLabel(pm));
+			map.put("packageName", pi.packageName);
+			items.add(map);
+		}
+	}
+	if (items.size() &gt;= 1) {
+		String packageName = (String) items.get(0).get("packageName");
+		Intent i = pm.getLaunchIntentForPackage(packageName);
+		if (i != null)
+			context.startActivity(i);
+	} else {
+		Toast.makeText(context, "没有安装计算器", Toast.LENGTH_SHORT).show();
+	}
+}
+</code></pre>
+</div>
+
+<h2 id="参考">参考</h2>
+
+<p><a href="https://developer.android.com/guide/components/intents-filters.html">Intent 和 Intent 过滤器</a></p>
+
+<p><a href="https://developer.android.com/guide/components/intents-common.html">通用Intent</a></p>
+
+<h2 id="隐式intent匹配测试代码">隐式Intent匹配测试代码</h2>
+
+<p><a href="https://github.com/arvinljw/AndroidArt/tree/master/app/src/main/java/net/arvin/androidart/intent">隐式Intent匹配测试代码含总结</a></p>
+
+
+  </div>
+
+  
+</article>
+
+
+    </div>
+
+ </div>
+    </div>
+
+    <div class="wrapper-footer">
+      <div class="container">
+        <footer class="footer">
+            <div class="svg-icon">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+            </div>
+        </footer>
+      </div>
+    </div>
+
+
+    
+
+  </body>
+</html>

@@ -1,0 +1,332 @@
+---
+layout: post
+title: Android学习感悟之View之三解决滑动冲突
+author: arvinljw
+---
+
+本篇包括View的滑动方法介绍以及如何解决滑动冲突
+
+# 简介
+
+本文包括：
+
+* 滑动的方法有哪些；
+* 如何解决滑动冲突。
+
+## 滑动方法
+
+直入正题，常见的View的滑动方法大致可分为三种：
+
+1. 利用scrollTo或scrollBy；
+2. 使用平移动画；
+3. 改变View的LayoutParams的属性并重绘；
+
+现在逐一介绍。
+
+### 利用scrollTo或scrollBy
+
+这两个方法到底是如何实现滑动的呢？我们先看一下其源码，如下：
+
+```
+	public void scrollTo(int x, int y) {
+		if (mScrollX != x || mScrollY != y) {
+			int oldX = mScrollX;
+			int oldY = mScrollY;
+			mScrollX = x;
+			mScrollY = y;
+			invalidateParentCaches();
+			onScrollChanged(mScrollX, mScrollY, oldX, oldY);
+			if (!awakenScrollBars()) {
+				postInvalidateOnAnimation();
+			}
+		}
+	}
+    
+	public void scrollBy(int x, int y) {
+		scrollTo(mScrollX + x, mScrollY + y);
+	}
+```
+
+可以看到scrollBy是调用了scrollTo方法，所以只要了解scrollTo即可，可以看到其具体实现就是改变mScrollX或mScrollY的值；这里我们先引入两个变量，View的左边缘和View内容的左边缘，分别定义为x1，x2，则**mScrollX ＝ x1 - x2**；同理若View的上边缘和View内容的上边缘分别为y1，y2，则**mScrollY ＝ y1 - y2**；**即mScrollX为正时，内容偏左，反之亦是，mScrollY同理**；View的边缘表示View在布局中的位置，而内容的边缘表示具体内容位置，所以scrollTo只能改变View内容的位置。
+
+搞清楚这个概念，我相信使用这个方法就不是难事了～
+
+### 使用平移动画
+
+由于现在项目基本都是兼容4.0以上了，所以这里说的动画都指属性动画，因为属性动画是完全包含了之前的补间动画,并且补间动画也不会改变View的真实位置，也是只改变了View内容的位置；而属性动画的更多内容这里不再介绍，之后会单独介绍，这里就看看简单的使用。
+
+```
+ObjectAnimator.ofFloat(this, "translationX", 0, 100).setDuration(1000).start();
+
+ObjectAnimator.ofFloat(this, "translationY", 0, 100).setDuration(1000).start();
+```
+
+这两句话，上一句表示在1秒内从当前位置，向右平移100px；下一句表示在1秒内从当前位置，向下平移100px；这里也有一个概念，就是以手机屏幕的左上角作为坐标起点，为(0,0)，向右表示水平方向x增加，为正，向下表示垂直方向y增加，为正；所以移动的距离为正，则表示水平向右或垂直向下，反之亦是。
+
+### 改变View的LayoutParams的属性并重绘
+
+这个也是比较好理解的，在布局的时候，如果我们想在原来的基础上向右移动50dp，我们只需要多加一句：
+
+```
+android:layout_marginLeft="50dp"
+```
+
+同理，我们也可以使用代码去动态的改变，在View加载完后，我们便可以使用改变Layoutparams的方式去改变其位置，例如我们去改变一个button的位置：
+
+```
+ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) button.getLayoutParams();
+params.leftMargin += 100;
+button.requestLayout();
+```
+
+这样就可以了，这种方式也改变了View的位置，是比较灵活的方式，需要根据起父容器是什么去改变LayoutParams，例如，如果其父容器是LinearLayout，如上代码就要改为：
+
+```
+LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) button.getLayoutParams();
+params.leftMargin += 100;
+button.requestLayout();
+```
+
+好了常用的三种View的滑动方式的方法已经介绍完了，大家可以根据自己的需要采用不同的方法。但是可能大家会发现一个问题，那就是出了属性动画外，另外两种方式滑动很生硬，而正好接下来就是要让他不那么生硬，针对scrollTo和改变LayoutParams属性的方法，常用的方法又有两种方式，实现不那么生硬的方法，即弹性滑动。
+
+### 弹性滑动
+
+这两种方法包括：
+
+1. 使用Scroller；
+2. 使用延时策略。
+
+#### 使用Scroller
+
+这个的使用也是很简单的，废话不多说，先上代码：
+
+```
+	Scroller scroller = new Scroller(getContext());
+	
+	private void smoothScrollTo(int destX, int destY) {
+		int scrollX = getScrollX();
+		int deltaX = destX - scrollX;
+
+		int scrollY = getScrollY();
+		int deltaY = destY - scrollY;
+
+		scroller.startScroll(scrollX, scrollY, deltaX, deltaY, 1000);
+		invalidate();
+	}
+
+	@Override
+	public void computeScroll() {
+		super.computeScroll();
+		if (scroller.computeScrollOffset()) {
+			scrollTo(scroller.getCurrX(), scroller.getCurrY());
+			postInvalidate();
+		}
+	}
+```
+
+如上代码就是Scroller最常用的方法，有几个细节比较重要，在smoothScrollTo方法中需要，调用scroller.startScroll方法后，需要让View重绘，因为在源码中我们可以看到，在onDraw方法中会调用computeScroll方法，而在computeScroll方法中，我们可以看到其实就是调用scroll计算的当前的x和y的距离，并使用scrollTo去滑动，然后继续重绘，直到到达我们要求的终点；接下来我们来看看上面几句代码到底是如何实现的，其实最重要的一点就是如何计算那个当前距离，来保证一点一点地移动；
+
+```
+	public void startScroll(int startX, int startY, int dx, int dy, int duration) {
+		mMode = SCROLL_MODE;
+		mFinished = false;
+		mDuration = duration;
+		mStartTime = AnimationUtils.currentAnimationTimeMillis();
+		mStartX = startX;
+		mStartY = startY;
+		mFinalX = startX + dx;
+		mFinalY = startY + dy;
+		mDeltaX = dx;
+		mDeltaY = dy;
+		mDurationReciprocal = 1.0f / (float) mDuration;
+	}
+```
+
+可以看到，startScroll方法就是保存我们传入的基本信息而已，并没有涉及到计算，好我们再看看：
+
+```
+	public boolean computeScrollOffset() {
+		if (mFinished) {
+			return false;
+		}
+
+		int timePassed = (int)(AnimationUtils.currentAnimationTimeMillis() - mStartTime);
+    
+		if (timePassed < mDuration) {
+			switch (mMode) {
+				case SCROLL_MODE:
+					final float x = mInterpolator.getInterpolation(timePassed * mDurationReciprocal);
+					mCurrX = mStartX + Math.round(x * mDeltaX);
+					mCurrY = mStartY + Math.round(x * mDeltaY);
+					break;
+				//...另一种模式的计算方式
+			}
+		} else {
+			mCurrX = mFinalX;
+			mCurrY = mFinalY;
+			mFinished = true;
+		}
+		return true;
+	}
+```
+
+代码也很简单，返回值表示是否移动到终点，里边就在计算mCurrX和mCurrY，这里边涉及到一个叫插值器的东西，他就是动画时间进度和动画状态的关系控制器，这里的插值器通过源码可以看到默认是ViscousFluidInterpolator，具体内容这里就不介绍了，之后会在属性动画中介绍，这里只需要知道，他是在根据剩下的时间来计算一个比例，在[0,1]之间，便可得到mCurrX和mCurrY，直到等于mFinalX和mFinalY就结束。
+
+#### 使用延时策略
+
+这种方式的核心思想就是通过发送一系列延时消息，从而达到一种渐进的效果，具体可以使用Handler活着View的postDelay来实现。方式都差不多，主要就是延时的方式有区别而已，下边就用Handler实现，代码如下：
+
+```
+public class SmoothScroll {
+    //表示每一次延时移动的距离
+    private final int SCROLL_MSG = 0;
+    private float perTranslationX = 0;
+    private float perTranslationY = 0;
+
+    private View scrollView;
+
+    private int delayTime = 16;
+    private int count = 0;
+    private int totalCount = 0;
+
+    @SuppressLint("HandlerLeak")
+    private Handler mHandler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            if (msg.what == SCROLL_MSG) {
+                count++;
+                if (count <= totalCount) {
+                    scrollView.scrollBy((int) perTranslationX, (int) perTranslationY);
+                    mHandler.sendEmptyMessageDelayed(SCROLL_MSG, delayTime);
+                }
+            }
+        }
+    };
+
+    public SmoothScroll(View view) {
+        this.scrollView = view;
+    }
+
+    public void startScroll(int deltaX, int deltaY, int duration) {
+        count = 0;
+        totalCount = duration / delayTime;
+        perTranslationX = deltaX / totalCount;
+        perTranslationY = deltaY / (float) totalCount;
+        mHandler.sendEmptyMessageDelayed(SCROLL_MSG, delayTime);
+    }
+}
+```
+
+## View的滑动冲突
+
+其实滑动冲突，并不是什么很复杂的问题，如果了解了View的事件分发机制后，你会发现其实真的没什么大不了的，其产生的具体原因就是内部和外部两层View都能滑动，这时候系统就不知道你到底要怎么滑，滑动就不流畅了甚至滑不动，而滑动冲突的具体场景大概可分为三种：
+
+1. 外部滑动方向与内部滑动方向不一致；
+2. 外部滑动方向与内部滑动方向一致；
+3. 包含以上两种情况；
+
+第一种情况最常见的就是，ViewPager加载Fragment，Fragment中使用ListView，其实这种是有滑动冲突的，但是却没有发现卡顿，是因为ViewPager已经处理了滑动冲突;
+
+第二种情况也比较常见，例如外层是ScrollView内部是ListView;
+
+第三种情况比较复杂，常见的就是，最外层SlideMenu，里边是Viewpager，在里边是ListView；
+
+处理规则也是分情况的，第一种就是根据，滑动的方向来判断；第二种就只能根据业务逻辑自己判断；第三种当然也只能根据业务逻辑来判断；
+
+而解决这三种冲突的办法大致分为两种：外部拦截法和内部拦截法；
+
+外部拦截法，就是重写外层容器的onInterceptTouchEvent方法，即父容器需要改事件就拦截，不要就不拦截，比较符合事件分发机制。onInterceptTouchEvent伪代码如下：
+
+```
+	@Override
+	public boolean onInterceptTouchEvent(MotionEvent event) {
+		boolean intercepted = false;
+		int x = (int) event.getX();
+		int y = (int) event.getY();
+
+		switch (event.getAction()) {
+			case MotionEvent.ACTION_DOWN: {
+				intercepted = false;
+					break;
+			}
+			case MotionEvent.ACTION_MOVE: {
+				int deltaX = x - mLastXIntercept;
+				int deltaY = y - mLastYIntercept;
+				if (父容器需要当前事件) {
+					intercepted = true;
+				} else {
+					intercepted = false;
+				}
+				break;
+			}
+			case MotionEvent.ACTION_UP: {
+				intercepted = false;
+				break;
+			}
+		}
+		return intercepted;
+	}
+```
+内部拦截法，是指父容器不拦截任何事件，所有的事件都由子View处理，如果子View需要就直接消耗掉，不需要就使用requestDisallowInterceptTouchEvent方法；具体伪代码如下：
+
+```
+	@Override
+	public boolean dispatchTouchEvent(MotionEvent event) {
+		int x = (int) event.getX();
+		int y = (int) event.getY();
+
+		switch (event.getAction()) {
+			case MotionEvent.ACTION_DOWN: {
+				parent.requestDisallowInterceptTouchEvent(true);
+				break;
+			}
+			case MotionEvent.ACTION_MOVE: {
+				int deltaX = x - mLastX;
+				int deltaY = y - mLastY;
+				if (父容器需要改事件) {
+					parent.requestDisallowInterceptTouchEvent(false);
+				}
+				break;
+			}
+		mLastX = x;
+		mLastY = y;
+		return super.dispatchTouchEvent(event);
+	}
+    
+    /**
+    *父容器重写
+    */
+	@Override
+	public boolean onInterceptTouchEvent(MotionEvent event) {
+		int x = (int) event.getX();
+		int y = (int) event.getY();
+		int action = event.getAction();
+		if (action == MotionEvent.ACTION_DOWN) {
+			return false;
+		} else {
+			return true;
+		}
+	}
+```
+
+大体的思想就是这样，具体的使用还需要自己在实践中自行体会，还有个别例子的代码就不贴出来了，稍后贴上两个链接，里边有一些例子。
+
+## 源码
+
+[Android开发艺术探究——View事件体系](https://github.com/singwhatiwanna/android-art-res/tree/master/Chapter_3)
+
+[AndroidThing之View](https://github.com/arvinljw/AndroidThinking)
+
+## 感谢
+
+感谢任玉刚大神的《Android开发艺术探究》
+
+感谢张洪洋大神的博客
+
+感谢CodeKK网站的源码解析
+
+好多东西都是看了他们的博客然后再阅读源码有了一定的理解。
+
+
+
+

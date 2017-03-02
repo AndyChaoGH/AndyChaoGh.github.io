@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link type="image/x-icon" rel="shortcut icon" href="/thumbnail.png" />
+    <link href='https://fonts.googleapis.com/css?family=Architects+Daughter' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="/assets/css/style.css?v=" media="screen" type="text/css">
+    <link rel="stylesheet" href="/assets/css/print.css" media="print" type="text/css">
+    <meta charset="utf-8" />
+    <meta content='text/html; charset=utf-8' http-equiv='Content-Type'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
+
+    
+    <meta name="description" content="Android Studio中.so包使用问题介绍
+
+" />
+    <meta property="og:description" content="Android Studio中.so包使用问题介绍
+
+" />
+    
+    <meta name="author" content="" />
+
+    
+    <meta property="og:title" content="Android Studio中.so包使用以及常见问题" />
+    <meta property="twitter:title" content="Android Studio中.so包使用以及常见问题" />
+    
+
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <title>CodeLion by AndyChao</title>
+  </head>
+
+  <body>
+    
+ <header>
+      <div class="inner">
+        <a href="http://localhost:4000/">
+           <h1>Android Studio中.so包使用以及常见问题</h1>
+        </a>
+
+ <a href="/" class="button"><small>Back to</small> Home Page </a>
+        
+      
+      </div>
+    </header>
+    
+   
+    
+
+    <div id="content-wrapper">
+      <div class="inner clearfix">
+      <article class="post">
+ <div class="space-extra-small">
+ </div>
+
+  <div class="entry">
+    <p>Android Studio中.so包使用问题介绍</p>
+
+<h1 id="简介">简介</h1>
+
+<p>最近在项目中遇到了关于.so包使用中的问题，在此记录下问题的解决方案。</p>
+
+<p>本文会介绍到关于.so包在Android Studio中的使用和在使用过程中的问题以及其解决方法。</p>
+
+<h2 id="使用">使用</h2>
+
+<p>.so包在Android Studio中的使用其实就是通过gradle脚本告诉编译器去哪里找，而默认的配置中也包含了某个文件夹下就能直接识别。</p>
+
+<p>这个能直接识别目录就是项目的/src/main/文件夹下的jniLibs文件夹中，其中jniLibs得自己创建，文件名必须是这个。因为在默认的配置中有这么一句</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>sourceSets {
+    main {
+        jniLibs.srcDirs = ['src/main/jniLibs']
+    }
+}
+</code></pre>
+</div>
+
+<p>这就是在告诉编译器，我的.so包你可以去哪里找到。</p>
+
+<p>明白了原理，我们也可以修改这个配置，例如改为</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>sourceSets {
+    main {
+        jniLibs.srcDirs = ['libs']
+    }
+}
+</code></pre>
+</div>
+
+<p>这样我们就可以像Eclipse那样把so包直接放到libs文件夹下了。</p>
+
+<h2 id="问题">问题</h2>
+
+<p>使用也是比较简单，而当我们在引用了一些第三方的库的时候，基于某些原因使用到了.so包，但是提供的cpu架构又不统一，就会导致在某个cpu架构下找不到对应的.so包，这时候程序就会毫无疑问的崩溃掉，而且这种问题有时候还不是那么容易测到。</p>
+
+<p>而导致这个问题的原因也在描述中说到，其实就是因为在某些cpu架构下没有找到对应的.so包，既然找到了问题，那么就简单了，因为我们只要保证在程序添加的cpu架构中都包含使用到的.so包，那么就不会出现找不到的问题了，其中缺省的.so包可以使用armeabi架构下的对应.so包来代替；</p>
+
+<p>解决问题的原理说清楚了，操作起来就简单了，有两种方法：</p>
+
+<ul>
+  <li>把引用到的三方库的so包都统一保留某些个cpu架构的</li>
+  <li>使用gradle脚本只留下万能的cpu架构（armeabi）,具体为什么只留下一个的原因，主要是在使用的过程中发现该脚本不会把某些没有.so包的cpu架构复制过去，那就还是没有，所以只留armeabi，因为这个是肯定会有的，脚本如下：</li>
+</ul>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>ndk {
+    abiFilters 'armeabi'
+//, 'x86', 'armeabi-v7a', 'x86_64', 'arm64-v8a', mips, mips64
+加入需要生成的架构
+}
+</code></pre>
+</div>
+
+<p>这样问题就基本解决了，如果只保留一个的话，就会在某些架构上三方库的性能下降，但是至少保证了几乎不会直接奔溃，还有一点这里边提到的cpu架构这里就不解释了，毕竟我也是才疏学浅</p>
+
+  </div>
+
+  
+</article>
+
+
+    </div>
+
+ </div>
+    </div>
+
+    <div class="wrapper-footer">
+      <div class="container">
+        <footer class="footer">
+            <div class="svg-icon">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+            </div>
+        </footer>
+      </div>
+    </div>
+
+
+    
+
+  </body>
+</html>

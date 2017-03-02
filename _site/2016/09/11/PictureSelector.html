@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link type="image/x-icon" rel="shortcut icon" href="/thumbnail.png" />
+    <link href='https://fonts.googleapis.com/css?family=Architects+Daughter' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="/assets/css/style.css?v=" media="screen" type="text/css">
+    <link rel="stylesheet" href="/assets/css/print.css" media="print" type="text/css">
+    <meta charset="utf-8" />
+    <meta content='text/html; charset=utf-8' http-equiv='Content-Type'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
+
+    
+    <meta name="description" content="这是一个仿微信的图片选择器,包含单选、多选、裁剪、预览、拍照等功能。
+
+" />
+    <meta property="og:description" content="这是一个仿微信的图片选择器,包含单选、多选、裁剪、预览、拍照等功能。
+
+" />
+    
+    <meta name="author" content="" />
+
+    
+    <meta property="og:title" content="PictureSelector" />
+    <meta property="twitter:title" content="PictureSelector" />
+    
+
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <title>CodeLion by AndyChao</title>
+  </head>
+
+  <body>
+    
+ <header>
+      <div class="inner">
+        <a href="http://localhost:4000/">
+           <h1>PictureSelector</h1>
+        </a>
+
+ <a href="/" class="button"><small>Back to</small> Home Page </a>
+        
+      
+      </div>
+    </header>
+    
+   
+    
+
+    <div id="content-wrapper">
+      <div class="inner clearfix">
+      <article class="post">
+ <div class="space-extra-small">
+ </div>
+
+  <div class="entry">
+    <p>这是一个仿微信的图片选择器,包含单选、多选、裁剪、预览、拍照等功能。</p>
+
+<h1 id="pictureselector">PictureSelector</h1>
+
+<p>这是一个仿微信的图片选择器。</p>
+
+<p>效果图：</p>
+
+<ul>
+  <li>选择界面</li>
+</ul>
+
+<p><img src="../images/main.png" alt="" /></p>
+
+<ul>
+  <li>预览界面</li>
+</ul>
+
+<p><img src="../images/review.png" alt="" /></p>
+
+<ul>
+  <li>裁剪界面</li>
+</ul>
+
+<p><img src="../images/crop.png" alt="" /></p>
+
+<ul>
+  <li>选择文件目录界面</li>
+</ul>
+
+<p><img src="../images/folder.png" alt="" /></p>
+
+<h2 id="features">Features</h2>
+
+<p>1、图片来源：拍照，本地图片媒体库中jpg和png类型的图片</p>
+
+<p>2、功能：多选、单选、拍照、预览、裁剪</p>
+
+<p>3、todo：优化细节（一些动画）、整理解析文档</p>
+
+<h2 id="usage">Usage</h2>
+
+<p>1、引用Lib（Android studio）</p>
+
+<p>通过引用Module方式引用，这样会更方便定制</p>
+
+<ul>
+  <li>在AndroidManifest.xml文件中添加：</li>
+</ul>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>&lt;uses-permission android:name="android.permission.CAMERA"/&gt;
+&lt;uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /&gt;
+&lt;uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" /&gt;
+...
+
+&lt;!--7.0以上拍照适配--&gt;
+&lt;provider
+	android:name="android.support.v4.content.FileProvider"
+	android:authorities="项目包名.takephoto.fileprovider"
+	android:exported="false"
+	android:grantUriPermissions="true"&gt;
+	&lt;meta-data
+		android:name="android.support.FILE_PROVIDER_PATHS"
+		android:resource="@xml/file_paths" /&gt;
+&lt;/provider&gt;
+
+&lt;!--图片选择首页--&gt;
+&lt;activity
+    android:name="net.arvin.pictureselector.uis.PictureSelectorActivity"
+    android:screenOrientation="portrait" /&gt;
+    
+&lt;!--只拍照和裁剪--&gt;
+&lt;activity
+	android:name="net.arvin.pictureselector.uis.TakePhotoAndCropActivity"
+	android:screenOrientation="portrait" /&gt;
+</code></pre>
+</div>
+
+<p>注意：provider的android:authorities属性把项目包名换成该项目的包名，因为在手机中，这个属性是不能重复的。</p>
+
+<p>2、修改默认配置</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>／／这是默认设置
+PSConfigUtil.getInstance().setCanCrop(false)
+                .setCanTakePhoto(true)
+                .setMaxCount(9)
+                .setStatusBarColor(R.color.ps_colorPrimaryDark);
+</code></pre>
+</div>
+<ul>
+  <li>setCanCrop 是否能裁剪，只有maxCount为1时才有效；</li>
+  <li>setCanTakePhoto 是否支持拍照；</li>
+  <li>setMaxCount 设置一次最多可选择图片的数量；</li>
+  <li>setStatusBarColor 设置状态栏颜色，默认为值”#2f3034”。</li>
+</ul>
+
+<p>3、启动PictureSelector：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private final int REQUEST_CODE_1 = 1001;
+private ArrayList&lt;ImageEntity&gt; selectedImages;
+...
+PSConfigUtil.getInstance().showSelector(MainActivity.this, REQUEST_CODE_1, selectedImages);
+／／或者不传参数，注意传递已选择图片的大小不能超过设置的最大数量
+PSConfigUtil.getInstance().showSelector(MainActivity.this, REQUEST_CODE_1);
+</code></pre>
+</div>
+
+<p>4、启动拍照</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private final int REQUEST_CODE_2 = 1002;
+PSConfigUtil.getInstance().showTakePhotoAndCrop(MainActivity.this, REQUEST_CODE_2);
+</code></pre>
+</div>
+
+<p>5、接收选择的图片数据：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>	@Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (resultCode == RESULT_OK) {
+            switch (requestCode) {
+                case REQUEST_CODE_1: {
+                    selectedImages.clear();
+                    List&lt;ImageEntity&gt; temp = data.getParcelableArrayListExtra(PSConstanceUtil.PASS_SELECTED);
+                    selectedImages.addAll(temp);
+
+                    PSGlideUtil.loadImage(this, "file://" + temp.get(0).getPath(), img);
+                    for (ImageEntity selectedImage : selectedImages) {
+                        Log.d("back_data", selectedImage.getPath());
+                    }
+                    break;
+                }
+                case REQUEST_CODE_2: {
+                    selectedImages.clear();
+                    List&lt;ImageEntity&gt; temp = data.getParcelableArrayListExtra(PSConstanceUtil.PASS_SELECTED);
+                    selectedImages.addAll(temp);
+
+                    PSGlideUtil.loadImage(this, "file://" + temp.get(0).getPath(), img);
+                    for (ImageEntity selectedImage : selectedImages) {
+                        Log.d("back_data", selectedImage.getPath());
+                    }
+                    break;
+                }
+            }
+        }
+    }
+</code></pre>
+</div>
+
+<p>6、清除图片缓存(删除)</p>
+
+<ul>
+  <li>清除裁剪图片：</li>
+</ul>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>PSCropUtil.clear();
+</code></pre>
+</div>
+<ul>
+  <li>清除拍照图片</li>
+</ul>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>PSTakePhotoUtil.clear();
+</code></pre>
+</div>
+
+<ul>
+  <li>清除所有</li>
+</ul>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>PSConfigUtil.clearCache();
+</code></pre>
+</div>
+
+<h2 id="thanks">Thanks</h2>
+
+<ul>
+  <li>图片预览在<a href="https://github.com/chrisbanes/PhotoView">PhotoView</a>的基础上做了一定的修改；</li>
+  <li>图片裁剪使用了鸿洋大神的<a href="http://blog.csdn.net/lmj623565791/article/details/39761281">仿微信头像裁剪</a>,加载和裁剪算法并做了一定的修改。</li>
+  <li>大图显示使用了<a href="https://github.com/davemorrissey/subsampling-scale-image-view">SubsamplingScaleImageView</a>,并增加裁剪（还有优化空间）</li>
+  <li>图片加载使用Glide</li>
+  <li>事件传递使用Eventbus</li>
+  <li>异步操作使用了Rxjava和Rxandroid</li>
+</ul>
+
+<p>在此表示感谢！</p>
+
+<h2 id="license">License</h2>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>   Copyright 2016 arvinljw
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+</code></pre>
+</div>
+
+<h2 id="源码">源码</h2>
+
+<p><strong><a href="https://github.com/arvinljw/PictureSelector">源码链接</a></strong></p>
+
+
+  </div>
+
+  
+</article>
+
+
+    </div>
+
+ </div>
+    </div>
+
+    <div class="wrapper-footer">
+      <div class="container">
+        <footer class="footer">
+            <div class="svg-icon">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+            </div>
+        </footer>
+      </div>
+    </div>
+
+
+    
+
+  </body>
+</html>

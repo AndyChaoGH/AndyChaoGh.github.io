@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link type="image/x-icon" rel="shortcut icon" href="/thumbnail.png" />
+    <link href='https://fonts.googleapis.com/css?family=Architects+Daughter' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="/assets/css/style.css?v=" media="screen" type="text/css">
+    <link rel="stylesheet" href="/assets/css/print.css" media="print" type="text/css">
+    <meta charset="utf-8" />
+    <meta content='text/html; charset=utf-8' http-equiv='Content-Type'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
+
+    
+    <meta name="description" content="本篇包括View的事件体系以及ViewGroup的事件体系
+
+" />
+    <meta property="og:description" content="本篇包括View的事件体系以及ViewGroup的事件体系
+
+" />
+    
+    <meta name="author" content="" />
+
+    
+    <meta property="og:title" content="Android学习感悟之View之二事件体系" />
+    <meta property="twitter:title" content="Android学习感悟之View之二事件体系" />
+    
+
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <title>CodeLion by AndyChao</title>
+  </head>
+
+  <body>
+    
+ <header>
+      <div class="inner">
+        <a href="http://localhost:4000/">
+           <h1>Android学习感悟之View之二事件体系</h1>
+        </a>
+
+ <a href="/" class="button"><small>Back to</small> Home Page </a>
+        
+      
+      </div>
+    </header>
+    
+   
+    
+
+    <div id="content-wrapper">
+      <div class="inner clearfix">
+      <article class="post">
+ <div class="space-extra-small">
+ </div>
+
+  <div class="entry">
+    <p>本篇包括View的事件体系以及ViewGroup的事件体系</p>
+
+<h1 id="简介">简介</h1>
+
+<p>本文包括：</p>
+
+<ul>
+  <li>View的事件体系；</li>
+  <li>ViewGroup的事件体系；</li>
+</ul>
+
+<h2 id="view的事件体系">View的事件体系</h2>
+
+<p>View的事件体系，其实和View的绘制是同样的思想，都是自上而下，逐一调用，同样View和ViewGroup的调用也是有一些差别，所以，下面也会分开来说明。</p>
+
+<h3 id="view的事件体系-1">View的事件体系</h3>
+
+<p>下边是我自己对源码理解后画的流程图：</p>
+
+<p><img src="../images/View事件传递.png" alt="" /></p>
+
+<p>View的事件流程中包括以下几个重要的事件：dispatchTouchEvent、onTouchListener、onTouchEvent、onLongClickListener、onClickListener；接下来就来解释一下如何调用的。</p>
+
+<p>在用户点击某个View后，根据流程图我们可以看到，他是先调用dispatchTouchEvent方法，源码如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>	public boolean dispatchTouchEvent(MotionEvent event) {
+        boolean result = false;
+        //...其它代码
+        ListenerInfo li = mListenerInfo;
+        if (li != null &amp;&amp; li.mOnTouchListener != null
+                &amp;&amp; (mViewFlags &amp; ENABLED_MASK) == ENABLED
+                &amp;&amp; li.mOnTouchListener.onTouch(this, event)) {
+            result = true;
+        }
+
+        if (!result &amp;&amp; onTouchEvent(event)) {
+            result = true;
+        }
+        return result;
+    }
+
+</code></pre>
+</div>
+
+<p>该方法里主要逻辑为判断是否有onTouchListener，如果有，并且其onTouch方法返回true，则之后所有的事件都由onTouch方法处理；如果没有或者onTouchListener的onTouch方法返回false，则执行onTouchEvent方法；</p>
+
+<p>首先触发的事件为ACTION_DOWN，这时候会给View标记为prepressed（预点击），延时100ms，如果还没有执行其它事件，这时候就标记为pressed（点击），记录为预长按，延时400ms，如果也没有执行其它事件，则触发onLongClick事件，当然前提是onLongClickListener不为空；源码如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>	@Override
+	public boolean onTouchEvent(MotionEvent event) {
+        //...其它代码
+        if(((viewFlags &amp; CLICKABLE) == CLICKABLE ||
+                (viewFlags &amp; LONG_CLICKABLE) == LONG_CLICKABLE) ||
+                (viewFlags &amp; CONTEXT_CLICKABLE) == CONTEXT_CLICKABLE){
+			switch (event.getAction()) {
+				case MotionEvent.ACTION_DOWN:
+					mPrivateFlags |= PFLAG_PREPRESSED;
+					if (mPendingCheckForTap == null) {
+						mPendingCheckForTap = new CheckForTap();
+					}
+					mPendingCheckForTap.x = event.getX();
+					mPendingCheckForTap.y = event.getY();
+					postDelayed(mPendingCheckForTap,
+							ViewConfiguration.getTapTimeout());
+				break;
+        	}  
+        	return true;
+        }
+    	return false;
+    }
+    
+    private final class CheckForTap implements Runnable {
+        @Override
+        public void run() {
+            mPrivateFlags &amp;= ~PFLAG_PREPRESSED;
+            setPressed(true, x, y);
+            checkForLongClick(ViewConfiguration.getTapTimeout(), x, y);
+        }
+    }
+    
+    private void checkForLongClick(int delayOffset, float x, float y) {
+        if ((mViewFlags &amp; LONG_CLICKABLE) == LONG_CLICKABLE) {
+            mHasPerformedLongPress = false;
+
+            if (mPendingCheckForLongPress == null) {
+                mPendingCheckForLongPress = new CheckForLongPress();
+            }
+            postDelayed(mPendingCheckForLongPress,
+                    ViewConfiguration.getLongPressTimeout() - delayOffset);
+        }
+    }
+    
+    private final class CheckForLongPress implements Runnable {
+        @Override
+        public void run() {
+            if (isPressed() &amp;&amp; (mParent != null)
+                    &amp;&amp; mOriginalWindowAttachCount == mWindowAttachCount) {
+                if (performLongClick(mX, mY)) {
+                    mHasPerformedLongPress = true;
+                }
+            }
+        }
+    }
+    
+    private boolean performLongClickInternal(float x, float y) {
+        boolean handled = false;
+        final ListenerInfo li = mListenerInfo;
+        if (li != null &amp;&amp; li.mOnLongClickListener != null) {
+            handled = li.mOnLongClickListener.onLongClick(View.this);
+        }
+        return handled;
+    }
+</code></pre>
+</div>
+
+<p>其中performLongClick方法就是得到长按的返回值，改变mHasPerformedLongPress的值，表示长按是否返回true；</p>
+
+<p>回到主路线，下边就是执行ACTION_MOVE，源码如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>	case MotionEvent.ACTION_MOVE:
+		if (!pointInView(x, y, mTouchSlop)) {
+			removeTapCallback();
+			if ((mPrivateFlags &amp; PFLAG_PRESSED) != 0) {
+				removeLongPressCallback();
+				setPressed(false);
+			}
+		}
+	break;
+	
+	public boolean pointInView(float localX, float localY, float slop) {
+        return localX &gt;= -slop &amp;&amp; localY &gt;= -slop &amp;&amp; localX &lt; ((mRight - mLeft) + slop) &amp;&amp;
+                localY &lt; ((mBottom - mTop) + slop);
+    }
+</code></pre>
+</div>
+
+<p>代码很简单，就是移动的距离超过最小滑动距离后，就要移除掉pressed标记，和长按标记；</p>
+
+<p>然后执行的就是ACTION_UP，源码如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>	case MotionEvent.ACTION_UP:
+	    if (!mHasPerformedLongPress &amp;&amp; !mIgnoreNextUpEvent) {
+        removeLongPressCallback();
+        if (!focusTaken) {
+            if (mPerformClick == null) {
+                mPerformClick = new PerformClick();
+            }
+            if (!post(mPerformClick)) {
+                performClick();
+            }
+        }
+    }
+	break;
+	
+	public boolean performClick() {
+        final boolean result;
+        final ListenerInfo li = mListenerInfo;
+        if (li != null &amp;&amp; li.mOnClickListener != null) {
+            playSoundEffect(SoundEffectConstants.CLICK);
+            li.mOnClickListener.onClick(this);
+            result = true;
+        } else {
+            result = false;
+        }
+
+        sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_CLICKED);
+        return result;
+    }
+
+</code></pre>
+</div>
+
+<p>这里也很简单就是表示长按没有触发，或者出发后长按返回false，则就去执行onClickListener的onClick方法，当然前提是onClickListener不为空；</p>
+
+<p>onTouchEvent当然还有其它的事件，例如ACTION_CANCEL（触摸的位置超出View范围）、ACTION_POINTER_DOWN、ACTION_POINTER_UP等等，具体含义就不做介绍。</p>
+
+<h3 id="viewgroup的事件体系">ViewGroup的事件体系</h3>
+
+<p>对于View来说，不同的有两点，一是dispatchTouchEvent方法有所不同，二是多了一个onInterceptTouchEvent方法；而onTouchEvent的流程却是一样的；</p>
+
+<p>首先来看dispatchTouchEvent，该类比较复杂，只抽取重要的部分，代码如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>	@Override
+	public boolean dispatchTouchEvent(MotionEvent ev) {
+		//...其他代码
+		final boolean intercepted;
+		if (actionMasked == MotionEvent.ACTION_DOWN
+                    || mFirstTouchTarget != null) {
+			final boolean disallowIntercept = (mGroupFlags &amp; FLAG_DISALLOW_INTERCEPT) != 0;
+			if (!disallowIntercept) {
+				intercepted = onInterceptTouchEvent(ev);
+				ev.setAction(action); 
+			} else {
+				intercepted = false;
+			}
+		} else {
+			intercepted = true;
+		}
+		
+		//...
+		
+		if (intercepted || mFirstTouchTarget != null) {
+			ev.setTargetAccessibilityFocus(false);
+		}	
+		
+		//...
+		
+		if (!canceled &amp;&amp; !intercepted) {
+			if (actionMasked == MotionEvent.ACTION_DOWN
+                        || (split &amp;&amp; actionMasked == MotionEvent.ACTION_POINTER_DOWN)
+                        || actionMasked == MotionEvent.ACTION_HOVER_MOVE) {
+                        
+				final int childrenCount = mChildrenCount;
+				if (newTouchTarget == null &amp;&amp; childrenCount != 0) {
+					final View[] children = mChildren;
+					
+					for (int i = childrenCount - 1; i &gt;= 0; i--) {
+					
+						final int childIndex = getAndVerifyPreorderedIndex(
+                                    childrenCount, i, customOrder);
+                                    
+						final View child = getAndVerifyPreorderedView(
+                                    preorderedList, children, childIndex);
+                                    
+						if (dispatchTransformedTouchEvent(ev, false, child, idBitsToAssign)) {
+							 //...其它代码
+							newTouchTarget = addTouchTarget(child, idBitsToAssign);
+							alreadyDispatchedToNewTouchTarget = true;
+							break;
+						}
+					｝
+				｝
+			｝
+		｝
+		if (mFirstTouchTarget == null) {
+			handled = dispatchTransformedTouchEvent(ev, canceled, null,
+                        TouchTarget.ALL_POINTER_IDS);
+		} else {
+			//...
+			dispatchTransformedTouchEvent(ev, cancelChild,
+                                target.child, target.pointerIdBits);
+			//...
+                                
+		｝
+	}
+	
+	private static View getAndVerifyPreorderedView(ArrayList&lt;View&gt; preorderedList, View[] children,
+            int childIndex) {
+        final View child;
+        if (preorderedList != null) {
+            child = preorderedList.get(childIndex);
+            if (child == null) {
+                throw new RuntimeException("Invalid preorderedList contained null child at index "
+                        + childIndex);
+            }
+        } else {
+            child = children[childIndex];
+        }
+        return child;
+    }
+    
+    private boolean dispatchTransformedTouchEvent(MotionEvent event, boolean cancel,
+            View child, int desiredPointerIdBits) {
+        final boolean handled;
+
+        final int oldAction = event.getAction();
+        if (cancel || oldAction == MotionEvent.ACTION_CANCEL) {
+            event.setAction(MotionEvent.ACTION_CANCEL);
+            if (child == null) {
+                handled = super.dispatchTouchEvent(event);
+            } else {
+                handled = child.dispatchTouchEvent(event);
+            }
+            event.setAction(oldAction);
+            return handled;
+        }
+
+		//...其它代码
+
+        if (child == null) {
+            handled = super.dispatchTouchEvent(transformedEvent);
+        } else {
+        	//...其它代码
+            handled = child.dispatchTouchEvent(transformedEvent);
+        }
+
+        transformedEvent.recycle();
+        return handled;
+    }
+	
+</code></pre>
+</div>
+
+<p>代码比较多，但是意思不难，用伪代码表达的话就很容易明白了，如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public boolean dispatchTouchEvent(MotionEvent ev){
+	if(onInterceptTouchEvent(ev)){
+		return onTouchEvent(ev);
+	}else{
+		return child.dispatchTouchEvent(ev);
+	}
+}
+</code></pre>
+</div>
+<p>当然伪代码表达的肯定是不完全的，接下来，稍微详细的说一下我的理解，首先判断的还是是否会被拦截，这里有个标记，FLAG_DISALLOW_INTERCEPT，子View通过给其父容器设置这个标记就能让父容器的onInterceptTouchEvent方法无效，方法如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>	@Override
+    public void requestDisallowInterceptTouchEvent(boolean disallowIntercept) {
+
+        if (disallowIntercept == ((mGroupFlags &amp; FLAG_DISALLOW_INTERCEPT) != 0)) {
+            // We're already in this state, assume our ancestors are too
+            return;
+        }
+
+        if (disallowIntercept) {
+            mGroupFlags |= FLAG_DISALLOW_INTERCEPT;
+        } else {
+            mGroupFlags &amp;= ~FLAG_DISALLOW_INTERCEPT;
+        }
+
+        // Pass it up to our parent
+        if (mParent != null) {
+            mParent.requestDisallowInterceptTouchEvent(disallowIntercept);
+        }
+    }
+</code></pre>
+</div>
+<p>让该子View的父容器都打上该标记，就能直接跳过拦截了，这个在解决滑动冲突时，是比较重要的方法。</p>
+
+<p>回到主路线，如果没有该标记，则通过onInterceptTouchEvent方法判断是否拦截，如果拦截，则确定了接受事件的targetView，之后就会把所有的事件都给targetView，当然所有父类的分发和拦截方法也会依次调用；如果未拦截，就要依次循环子View的dispatchTouchEvent方法，判断是否消费了事件，具体的过程就是View的事件体系中所描述的，消费了事件，则也能确定targetView，同样就会把所有的事件都给targetView；如果子View都未消费，最后就会传回到Activity的onTouchEvent事件中处理。</p>
+
+<p>最后我们再来看一下onInterceptTouchEvent，代码比较简单，如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>	public boolean onInterceptTouchEvent(MotionEvent ev) {
+        if (ev.isFromSource(InputDevice.SOURCE_MOUSE)
+                &amp;&amp; ev.getAction() == MotionEvent.ACTION_DOWN
+                &amp;&amp; ev.isButtonPressed(MotionEvent.BUTTON_PRIMARY)
+                &amp;&amp; isOnScrollbarThumb(ev.getX(), ev.getY())) {
+            return true;
+        }
+        return false;
+    }
+</code></pre>
+</div>
+
+<p>那么ViewGroup的事件体系大体上就走完了，之后再上一张ViewGroup的事件流程图，如下：</p>
+
+<p><img src="../images/ViewGroup事件体系.png" alt="" /></p>
+
+
+  </div>
+
+  
+</article>
+
+
+    </div>
+
+ </div>
+    </div>
+
+    <div class="wrapper-footer">
+      <div class="container">
+        <footer class="footer">
+            <div class="svg-icon">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+            </div>
+        </footer>
+      </div>
+    </div>
+
+
+    
+
+  </body>
+</html>
